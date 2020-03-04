@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+
+		<div id="container">
+            <div class="image-upload-wrap">
+                <input class="file-upload-input" id="fileUpload" type='file' onchange="readURL(this);"/>
+                <div class="drag-text">
+                    <h3>Drag and drop a file or select Spreadsheet</h3>
+                </div>
+            </div>
+            <div class="file-upload-content">
+                <div class="image-title-wrap">
+                    <button type="button" onclick="removeUpload()" class="remove-image">Remove <span class="image-title">Uploaded Image</span></button>
+                </div>
+            </div>
+            <br><br>
+            <button class="learn-more" id="upload">
+                <span class="circle" aria-hidden="true">
+                    <span class="icon arrow"></span>
+                </span>
+                <span class="button-text">GENERATE NOW</span>
+            </button>
+
+            <div id="progress_container" style="display: none;">
+                <br>
+                <h4>Progress: <span id="progress">0%</span></h4>
+            </div>
+		</div>
+		<hr />
+		<div id="dvExcel"></div>
+</body>
+</html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.13.5/xlsx.full.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.13.5/jszip.js"></script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA03niXg0JbYCj0HjoWXMpsqqPL4X6Tyco"
+  type="text/javascript"></script>
+<script type="text/javascript">
+
+    const isIncludeLandmark = false;
+    var completed = 0;
+    const apikey = "AIzaSyA03niXg0JbYCj0HjoWXMpsqqPL4X6Tyco";
+
+    function readURL(input) {
+      if (input.files && input.files[0]) {
+
+        var reader = new FileReader();
+
+        reader.onload = function(e) {
+          $('.image-upload-wrap').hide();
+
+          $('.file-upload-image').attr('src', e.target.result);
+          $('.file-upload-content').show();
+
+          $('.image-title').html(input.files[0].name);
+        };
+
+        reader.readAsDataURL(input.files[0]);
+
+        $('#progress_container').hide();
+
+      } else {
+        removeUpload();
+      }
+    }
+
+    function removeUpload() {
+        $('.file-upload-input').replaceWith($('.file-upload-input').clone());
+        $('.file-upload-content').hide();
+        $('.image-upload-wrap').show();
+        $("#fileUpload").val(null);
+        $('#progress_container').hide();
+        $('#progress').text("0%");
+    }
+
+    function processAddress() {
+        
+    }
+
+    function getLatLng(address, total) {
+        var geocoder = new google.maps.Geocoder();
+
+        // Client side
+        geocoder.geocode( { 'address': address}, function(results, status) {
+
+            if (status == google.maps.GeocoderStatus.OK) {
+                var latitude = results[0].geometry.location.lat();
+                var longitude = results[0].geometry.location.lng();
+                console.log(address + ": " + latitude + ", " + longitude);
+            }else {
+                console.log(address + ": " + status);
+            }
+            completed++;
+            const progress = (completed / total) * 100;
+            if (completed === total) {
+                // Export the spreadsheet
+            }
+            $('#progress').text(progress + "%");
+        }); 
+
+        var query = 'https://maps.googleapis.com/maps/api/geocode/json?address=' + address + '&key=' + apikey;
+        $.getJSON(query, function (data) {
+          if (data.status === 'OK') { 
+            var geo_data = data.results[0];
+          } 
+        })
+
+    }
+
+    $('.image-upload-wrap').bind('dragover', function () {
+            $('.image-upload-wrap').addClass('image-dropping');
+        });
+        $('.image-upload-wrap').bind('dragleave', function () {
+            $('.image-upload-wrap').removeClass('image-dropping');
+    });
+
+    $("body").on("click", "#upload", function () {
+        //Reference the FileUpload element.
+        var fileUpload = $("#fileUpload")[0];
+ 
+        //Validate whether File is valid Excel file.
+        var regex = /^([a-zA-Z0-9\s_\\.\-:])+(.xls|.xlsx)$/;
+        if (regex.test(fileUpload.value.toLowerCase())) {
+            if (typeof (FileReader) != "undefined") {
+                var reader = new FileReader();
+ 
+                //For Browsers other than IE.
+                if (reader.readAsBinaryString) {
+                    reader.onload = function (e) {
+                        ProcessExcel(e.target.result);
+                    };
+                    reader.readAsBinaryString(fileUpload.files[0]);
+                } else {
+                    //For IE Browser.
+                    reader.onload = function (e) {
+                        var data = "";
+                        var bytes = new Uint8Array(e.target.result);
+                        for (var i = 0; i < bytes.byteLength; i++) {
+                            data += String.fromCharCode(bytes[i]);
+                        }
+                        ProcessExcel(data);
+                    };
+                    reader.readAsArrayBuffer(fileUpload.files[0]);
+                }
+            } else {
+                alert("This browser does not support HTML5.");
+            }
+        } else {
+            alert("Please upload a valid Excel file.");
+        }
+    });
+
+    function formatAddress(address) {
+        if (address !== undefined && address !== null && address.trim().length > 0) {
+
+            const splitter = ", ";
+
+            const capitalize = (s) => {
+                if (typeof s !== 'string') return ''
+                return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+            }
+
+            const arrAdd = address.split(", ");
+            const province = arrAdd[0].trim() || null;
+            const district = arrAdd[1].trim() || null;
+            const municipality = arrAdd[2].trim() || null;
+            const brg = arrAdd[3] !== undefined ? arrAdd[3].trim() : null;
+
+            var output = capitalize(municipality) + splitter + capitalize(province); 
+            if (brg !== null) {
+                var finalBrg = brg.split(". ")[1];
+                if (finalBrg === undefined) {
+                    finalBrg = brg.split(": ")[1];
+                    if (!isIncludeLandmark) {
+                        return capitalize(municipality) + splitter + capitalize(province);
+                    }
+                }
+                output = capitalize(finalBrg) + splitter + capitalize(municipality) + splitter + capitalize(province);
+            }
+            return output;
+        }else {
+            return null;
+        }
+    }
+
+    function ProcessExcel(data) {
+        //Read the Excel File data.
+        var workbook = XLSX.read(data, {
+            type: 'binary'
+        });
+ 
+        //Fetch the name of First Sheet.
+        var firstSheet = workbook.SheetNames[0];
+ 
+        //Read all rows from First Sheet into an JSON array.
+        var excelRows = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[firstSheet]);
+
+        $('#progress_container').show();
+        completed = 0;
+
+        for (var i = 0; i < excelRows.length; i++) {
+            const row = excelRows[i];
+            const address = row['ADDRESS'];
+            const lat = row['LONGITUDE'];
+            const lng = row['LATITUDE'];
+
+            const finalAddr = formatAddress(address);
+            getLatLng(finalAddr, 20);
+            if (i === 19) {
+                break;
+            }
+        }
+ 
+    };
+</script>
